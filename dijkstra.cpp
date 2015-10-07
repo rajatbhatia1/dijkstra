@@ -7,8 +7,10 @@
 #include <iterator>
 #include <map>
 #include <list>
+#include <queue>
+#include <cassert>
 
-uint32_t final = 0;
+uint32_t absolutefinal = 0;
 std::vector<std::set<uint32_t>> nodes;
 
 struct Route {
@@ -90,7 +92,7 @@ std::vector<Route> routes_tmp;
 
 void init(uint32_t n, uint32_t m)
 {
-    final = n;
+    absolutefinal = n;
     nodes.resize(n+1);
 }
 
@@ -101,9 +103,9 @@ void add_(uint32_t n1, uint32_t n2, uint32_t w)
     addWeight(n1, n2, w);
 
     #ifdef DEBUG
-    std::cout << "node[" << n1 << "] ";
+    std::cout << "nodes[" << n1 << "] ";
     for (auto &n: nodes.at(n1)) {
-        std::cout << n;
+      std::cout << n << " ";
     }
     std::cout << std::endl;
     #endif
@@ -117,13 +119,11 @@ void add_(uint32_t n1, uint32_t n2, uint32_t w)
 }
 void add(uint32_t n1, uint32_t n2, uint32_t w)
 {
-  if (n1 < n2) {
     add_(n1, n2, w);
-  } else if (n1>n2) {
     add_(n2, n1, w);
-  }
 }
 
+#if 0
 void compute()
 {
 
@@ -155,8 +155,8 @@ void compute()
             std::cout << " Evaluating " << r << std::endl;
             #endif
             uint32_t back = r.vertex.back();
-            // copy if final is reached
-            if (back == final) {
+            // copy if absolutefinal is reached
+            if (back == absolutefinal) {
                 if (r.weight < shortest_route.weight) {
                     shortest_route = r;
                 }
@@ -183,14 +183,14 @@ void compute()
                         new_r.vertex.push_back(n);
                         new_r.weight += getWeight(back, n);
 
-                        // copy if final is reached
-                        if (n == final) {
+                        // copy if absolutefinal is reached
+                        if (n == absolutefinal) {
                             #ifdef DEBUG
-                            std::cout << "   Evaluating final route=" << new_r << std::endl;
+                            std::cout << "   Evaluating absolutefinal route=" << new_r << std::endl;
                             #endif
                             if (new_r.weight < shortest_route.weight) {
                                 #ifdef DEBUG
-                                std::cout << "   New final route=" << new_r << std::endl;
+                                std::cout << "   New absolutefinal route=" << new_r << std::endl;
                                 #endif
                                 shortest_route = new_r;
                             }
@@ -215,6 +215,67 @@ void compute()
         routes = std::move(routes_tmp);
         routes_tmp.clear();
     } // while (!completed)
+}
+#endif
+
+struct Node {
+  bool solved = false;
+  bool all_solved = false;
+  uint32_t n = 0;
+  uint32_t current_weight = 0;
+  uint32_t back;
+    Node(bool _solved, uint32_t _n, uint32_t w, uint32_t _back):
+      solved(_solved),
+      n(_n),
+      current_weight(w),
+      back(_back)
+  {
+    // do nothing
+  }
+  Node(const Node &old) = default;
+
+  Node() = default;
+};
+std::vector<Node> solved;
+void compute() {
+  
+
+  bool completed = false;
+
+
+ 
+  
+  class NodeWeightCompare {
+  public:
+    bool operator() (Node &n1, Node &n2) {
+      return n1.current_weight < n2.current_weight;
+    }
+  };
+
+  std::priority_queue<Node, std::vector<Node>, NodeWeightCompare> current_nodes;
+  solved.emplace_back(true, 1, 0, UINT_MAX);
+  while (!completed) {
+    if (absolutefinal==solved.back().n) {
+      return;
+    }
+    bool added_something = false;
+    for (auto &solved_node:solved) {
+      for (auto &next_node:nodes[solved_node.n]) {
+	current_nodes.push(Node(false, next_node, getWeight(solved_node.n, next_node)+solved_node.current_weight, solved_node.n));
+	added_something = true;
+      }
+    }
+    const Node chosen = current_nodes.top();
+    nodes.at(chosen.n).erase(chosen.back);
+    nodes.at(chosen.back).erase(chosen.n);
+    solved.push_back(chosen);
+    current_nodes.pop();
+    while ((current_nodes.size()>0) && 
+	   (current_nodes.top().n==solved.back().n)) {
+      current_nodes.pop();
+    }
+    completed = !added_something;
+  }
 }
 
 int main() {
@@ -252,13 +313,37 @@ int main() {
         add(a1, a2, w);
     }
     compute();
-#endif
-    if (shortest_route.weight == INT_MAX)
-        std::cout << -1 << std::endl;
 
-    std::copy(shortest_route.vertex.begin(), shortest_route.vertex.end(),
-            std::ostream_iterator<uint32_t>(std::cout, " "));
-    std::cout << std::endl;
+#endif
+    // if (shortest_route.weight == INT_MAX)
+    //     std::cout << -1 << std::endl;
+
+    // std::copy(shortest_route.vertex.begin(), shortest_route.vertex.end(),
+    //         std::ostream_iterator<uint32_t>(std::cout, " "));
+    // std::cout << std::endl;
 
     //std::cout << "shortest path=" << shortest_route << std::endl;
+
+
+    if (solved.back().n==absolutefinal) {
+      std::vector<Node> allnodes(absolutefinal);
+      for (auto &s:solved) {
+	allnodes[s.n]=s;
+      }
+      uint32_t idx = absolutefinal;
+      std::list<uint32_t> rpath;
+      rpath.push_front(absolutefinal);
+      do {
+	idx = allnodes[idx].back;
+	rpath.push_front(idx);
+      } while (idx!=1);
+      std::copy(rpath.begin(), rpath.end(), 
+		std::ostream_iterator<uint32_t>(std::cout, " "));
+    } else {
+      std::cout << -1 << std::endl;
+    }
+    return 0;
+
+
+
 }
